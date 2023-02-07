@@ -1,0 +1,5 @@
+https://www.w3schools.com/react/react_router.asp
+https://www.geeksforgeeks.org/axios-in-react-a-guide-for-beginners/
+https://www.geeksforgeeks.org/reactjs-usenavigate-hook/
+https://codesandbox.io/s/tables-styled-components-v7vgb?from-embed=&file=/src/index.js
+https://codesandbox.io/embed/react-table-help-column-vertical-left-headers-vr3ni

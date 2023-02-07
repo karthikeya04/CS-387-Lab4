@@ -1,0 +1,12 @@
+*change css in login
+*change login post in server
+*dropping courses from current semester
+*Sort sem based on start dates in server.js("/home")
+*Drop courses on home page
+*Currently not using reg_dates and the sems are spring and fall
+*search box pointer alignment
+*What's the grade of the newly registered courses??
+*Currently just using refresh
+*what to display on clicking previous courses??
+*Add "successfully registered" kinda popup messages
+*Name columns in the table properly
