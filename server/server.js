@@ -170,15 +170,16 @@ app.get("/home/registration",async (req,res)=>{
             isAuthenticated: true,
             courses: []
         }
+        let sem = await get_current_semester();
+        let current_year = sem['0']
+        let current_semester = sem['1'];  
         response.courses = (await client.query(`
-        with Y(year) as (select max(year) from teaches limit 1), 
-        S(semester) as (select min(semester) from teaches where year in (select * from Y)) 
         select course_id,title,json_agg(sec_id) section
         from teaches natural join course
-        where year in (select * from Y) and semester in (select * from S) 
+        where year=$1 and semester=$2 
         group by (course_id,title)
         order by course_id asc;
-        `)).rows;
+        `,[current_year,current_semester])).rows;
         res.send(response);
     }
     else{
@@ -256,6 +257,7 @@ app.get("/course/running",async (req,res)=>{
         let sem = await get_current_semester();
         let current_year = sem['0']
         let current_semester = sem['1'];    
+        console.log(current_semester,current_year);
         let depts = (await client.query(`
         select dept_name department,building,count(distinct course_id)
         from teaches natural join course natural join department
@@ -290,8 +292,8 @@ app.get("/course/running/:dept_name",async (req,res)=>{
         let courses = (await client.query(`
         select  distinct course_id,title,credits
         from teaches natural join course
-        where dept_name=$1
-        `,[department])).rows;
+        where dept_name=$1 and year=$2 and semester=$3
+        `,[department,current_year,current_semester])).rows;
         let response = {
             isAuthenticated: true,
             courses: courses
