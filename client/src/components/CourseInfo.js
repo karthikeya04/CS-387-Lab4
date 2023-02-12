@@ -77,7 +77,7 @@ function CourseInfo(){
             </Center> 
         : <></>
         }
-        {Iinfo ? 
+        {Iinfo && Iinfo.length>0? 
             <Center V H>
                 <Table caption="" data={Iinfo} />
             </Center> 

@@ -98,7 +98,7 @@ function Home(){
                 <Table caption={""} data={userInfo} />
                 </Center> : <></>
             }
-            { currSemInfo.courses ? 
+            { currSemInfo.courses&&currSemInfo.courses.length>0? 
             <>
             <Center V H>
                 <Table caption={currSemInfo.semester+" "+currSemInfo.year} data={currSemInfo.courses} />
@@ -107,11 +107,11 @@ function Home(){
             :
             <></>
             }
-            { currSemInfo.courses && prevSemInfo ?
-            prevSemInfo.map((obj) => {return(
+            { currSemInfo.courses && prevSemInfo?
+            prevSemInfo.map((obj) => {return obj.courses.length>0 ? (
             <Center V H>
                 <Table data={obj.courses} caption={obj.semester+" "+obj.year}/>
-            </Center>)})
+            </Center>): <></>})
             :
             <></>
             }

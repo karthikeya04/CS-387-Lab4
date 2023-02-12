@@ -107,28 +107,40 @@ app.get("/home",async (req,res)=>{
         }
         userID = req.session.userID;
         response.userInfo = (await client.query("select * from student where id=$1;",[userID])).rows[0];
-     
-        let all_courses = (await client.query(`
+        let sem = await get_current_semester();
+        let current_year = sem['0']
+        let current_semester = sem['1'];
+
+        response.previous_sems = (await client.query(`
         select year,semester,json_agg(json_build_object('course_id',course_id,'title',title,'sec_id',sec_id,'credits',credits,'grade',grade)) courses
         from takes natural join course
-        where cast(id as int)=$1
+        where cast(id as int)=$1 and (year!=$2 or semester!=$3)
         group by (year,semester)
         order by year desc,case when semester='Winter' then 1 
                             when semester='Fall' then 2 
                             when semester='Summer' then 3
                             when semester='Spring' then 4 end;`
-        ,[userID])).rows;
-    
-        if(all_courses.length>=1) {
-            all_courses[0].courses = all_courses[0].courses.map(obj=>{
-                if(obj.grade==='Z'){
-                    obj.grade = "Not Assigned";
-                }
-                return obj;
-            })
-            response.current_sem = all_courses[0]
+        ,[userID,current_year,current_semester])).rows;
+        response.current_sem = (await client.query(`
+        select year,semester,json_agg(json_build_object('course_id',course_id,'title',title,'sec_id',sec_id,'credits',credits,'grade',grade)) courses
+        from takes natural join course
+        where cast(id as int)=$1 and year=$2 and semester=$3
+        group by (year,semester)
+        order by year desc,case when semester='Winter' then 1 
+                            when semester='Fall' then 2 
+                            when semester='Summer' then 3
+                            when semester='Spring' then 4 end;`
+        ,[userID,current_year,current_semester])).rows;
+        if(response.current_sem.length>0){
+            response.current_sem = response.current_sem[0];
         }
-        if(all_courses.length>=2) response.previous_sems = all_courses.slice(1);
+        else{
+            response.current_sem = {
+                year: current_year,
+                semester: current_semester,
+                courses: []
+            };
+        }
 
        // console.log(response.current_sem);
         return res.send(response);
@@ -341,6 +353,10 @@ app.get("/course/:course_id", async (req,res)=>{
         from teaches natural join instructor 
         group by (course_id,year,semester)) 
         select year,semester,instructors from instructors_data where course_id=$1
+        order by year desc,case when semester='Winter' then 1 
+                                when semester='Fall' then 2 
+                                when semester='Summer' then 3
+                                when semester='Spring' then 4 end;
         `,[course_id])).rows;
        
         //console.log(current_year,current_semester)
@@ -419,9 +435,10 @@ app.get("/instructor/:instructor_id",async (req,res)=>{
         `,[instructor_id,current_semester,current_year])).rows;
         console.log(response.current_courses);
         response.previous_courses = (await client.query(`
-        select distinct course.course_id,title,credits,semester,year 
+        select course.course_id,title,credits,semester,year 
         from (teaches natural join instructor) join course on teaches.course_id=course.course_id
         where id=$1 and (semester!=$2 or year!=$3)
+        group by (course.course_id,title,credits,semester,year)
         order by year desc,case when semester='Winter' then 1 
                                 when semester='Fall' then 2 
                                 when semester='Summer' then 3
