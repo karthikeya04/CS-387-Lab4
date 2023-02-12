@@ -10,3 +10,4 @@
 *what to display on clicking previous courses??
 *Add "successfully registered" kinda popup messages
 *Name columns in the table properly
+*withcredentials: true ????

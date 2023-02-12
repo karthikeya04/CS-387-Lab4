@@ -23,6 +23,10 @@ function InstructorInfo(){
                 obj["link"] = "/course/"+obj.course_id;
                 return obj;
             })
+            res.previous_courses = res.previous_courses.map(obj=>{
+                obj["link"] = "/course/"+obj.course_id;
+                return obj;
+            })
             setBasicInfo(res.basic_info);
             setCurrentCourses(res.current_courses);
             setPreviousCourses(res.previous_courses);
@@ -44,7 +48,7 @@ function InstructorInfo(){
                 <Table caption="" data={basicInfo} />
             </Center> 
         : <></>}
-        {currentCourses ?
+        {currentCourses&&currentCourses.length>0 ?
             <Center V H>
                 <Table caption="Current Courses" data={currentCourses} />
             </Center> 

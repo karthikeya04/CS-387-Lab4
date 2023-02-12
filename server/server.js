@@ -25,16 +25,33 @@ const client = new Client({
 client.connect();
 
 async function get_current_semester(){
+    // (await client.query(`
+    //     create table sems (
+    //         semester varchar(6),
+    //         val int
+    //     );
+    //     insert into sems values ('Spring',0);
+    //     insert into sems values ('Summer',1);
+    //     insert into sems values ('Fall',2);
+    //     insert into sems values ('Winter',3);
+    // `))
+    // (await client.query(`
+    //     drop table sems;
+    // `))
+    //console.log(top);
     let top = (await client.query(`
     select year,semester
-    from teaches
-    group by (year,semester)
-    order by year desc,semester asc
-    limit 1;
-    `)).rows;
-    //console.log(top);
+    from reg_dates
+    where start_time <= to_timestamp($1)
+    order by start_time desc
+    limit $1
+    `,[Date.now()/1000])).rows;
+    if(top.length==0){
+        return {'0':2005,'1':'Fall'};
+    }
     let current_year = top[0].year;
     let current_semester = top[0].semester;
+    console.log(current_year,current_semester)
     return {'0':current_year,'1':current_semester};
 }
 app.post('/login', async (req, res) => {
@@ -90,15 +107,29 @@ app.get("/home",async (req,res)=>{
         }
         userID = req.session.userID;
         response.userInfo = (await client.query("select * from student where id=$1;",[userID])).rows[0];
+     
         let all_courses = (await client.query(`
         select year,semester,json_agg(json_build_object('course_id',course_id,'title',title,'sec_id',sec_id,'credits',credits,'grade',grade)) courses
         from takes natural join course
         where cast(id as int)=$1
         group by (year,semester)
-        order by year desc,semester asc;`
+        order by year desc,case when semester='Winter' then 1 
+                            when semester='Fall' then 2 
+                            when semester='Summer' then 3
+                            when semester='Spring' then 4 end;`
         ,[userID])).rows;
-        if(all_courses.length>=1) response.current_sem = all_courses[0]
+    
+        if(all_courses.length>=1) {
+            all_courses[0].courses = all_courses[0].courses.map(obj=>{
+                if(obj.grade==='Z'){
+                    obj.grade = "Not Assigned";
+                }
+                return obj;
+            })
+            response.current_sem = all_courses[0]
+        }
         if(all_courses.length>=2) response.previous_sems = all_courses.slice(1);
+
        // console.log(response.current_sem);
         return res.send(response);
     }
@@ -271,20 +302,18 @@ app.get("/course/running/:dept_name",async (req,res)=>{
         res.send({isAuthenticated:false,msg:"Not logged in"});
     }
 })
+
 app.get("/course/:course_id", async (req,res)=>{
     if(req.session.userID){
         let course_id = req.params.course_id;
-        console.log(course_id);
-        let course_info = (await client.query(`
-        with time_slot_upd(time_slot_id,day,start_time,end_time) 
-        as (select time_slot_id,day,concat(start_hr,':',start_min) as start_time,concat(end_hr,':',end_min) as end_time from time_slot) 
-        select year,semester,sec_id,json_build_array(course_id,title,credits,building,room_number,json_agg(json_build_array(day,start_time,end_time)),json_agg(distinct jsonb_build_object('id',instructor.id,'name',instructor.name))) as other_info 
-        from 
-        (teaches natural join section natural join course natural join time_slot_upd) join instructor on instructor.id=teaches.id
-        where course_id=$1
-        group by (year,semester,sec_id,course_id,title,credits,building,room_number)
-        order by year desc,semester asc;
-        `,[course_id])).rows;        
+        // if(!year){    
+        //     let Sem = await get_current_semester();
+        //     let year = Sem['0']
+        //     let sem = Sem['1'];        
+        // }
+        let basic_info = (await client.query(`
+        select * from course where course_id=$1
+        `,[course_id])).rows[0];
         let prereqs = (await client.query(`
         select course_id,title
         from course
@@ -293,45 +322,50 @@ app.get("/course/:course_id", async (req,res)=>{
             from course natural join prereq
             where course_id=$1
         ) 
-        `,[course_id])).rows;
-        //console.log(course_info[0].other_info);
-        const dict = {
-            'M':'Monday',
-            'T':'Tuesday',
-            'W':'Wednesday',
-            'R':'Thursday',
-            'F':'Friday',
+        `,[course_id])).rows;   
+        if(prereqs.length===0){
+            basic_info["prereqs"] = [];
         }
-        console.log(course_info[0].other_info[5])
-        course_info = course_info.map((obj)=>{
-            obj.data = [{field: "course_id",content: obj.other_info[0]}];
-            obj.data.push({field: "title",content: obj.other_info[1]});
-            obj.data.push({field: "credits",content: obj.other_info[2]});
-            obj.data.push({field: "sec_id", content: obj.sec_id})
-            obj.data.push({field: "building",content: obj.other_info[3]})
-            obj.data.push({field: "room_number",content: obj.other_info[4]})
-            let time_slots = obj.other_info[5].map((arr)=>{
-                if(arr[1].slice(-2,-1)===':'){
-                    arr[1]+=arr[1].slice(-1);
-                    arr[1][arr[1].length-2] = "0";
-                }
-                return String(dict[arr[0]]+" "+arr[1]+ " to " + arr[2]);
-            }).join('\n');
-            obj.data.push({field: "time_slots",content: time_slots});
-            obj.data.push(obj.other_info[6]);
-            return obj;
-        })
-        console.log(course_info[0].data)
-        let sem = await get_current_semester();
-        let current_year = sem['0']
-        let current_semester = sem['1'];        
+        else{
+            basic_info["prereqs"] = (await client.query(`
+            select json_agg(json_build_object('course_id',prereq_id,'title',title)) prereqs 
+            from prereq join course on prereq_id=course.course_id 
+            group by prereq.course_id having prereq.course_id=$1;
+            `,[course_id])).rows[0].prereqs;
+        }
+        let instructors_info = (await client.query(`
+        with instructors_data as 
+        (select course_id,year,semester,json_agg(distinct jsonb_build_object('id',id,'Name',name)) instructors 
+        from teaches natural join instructor 
+        group by (course_id,year,semester)) 
+        select year,semester,instructors from instructors_data where course_id=$1
+        `,[course_id])).rows;
+       
         //console.log(current_year,current_semester)
+        basic_info = [
+            {
+                "field": "Course code",
+                "content": basic_info.course_id
+            },
+            {
+                "field": "title",
+                "content":basic_info.title
+            },
+            {
+                "field": "credits",
+                "content": basic_info.credits,
+            },
+            {
+                "field": "Prerequisites",
+                "content": basic_info.prereqs.length?basic_info.prereqs:"None",
+            },
+        ]
+        console.log(basic_info);
+        console.log(instructors_info);
         let response = {
             isAuthenticated: true,
-            course_info : course_info,
-            prereqs : prereqs,
-            current_year: current_year,
-            current_semester: current_semester
+            basic_info: basic_info,
+            instructors_info: instructors_info
         }
         //console.log(response)
        res.send(response);
@@ -376,18 +410,22 @@ app.get("/instructor/:instructor_id",async (req,res)=>{
         ]
         console.log(response.basic_info);
         response.current_courses = (await client.query(`
-        select course.course_id,title,credits 
+        select distinct course.course_id,title,credits,semester,year 
         from (teaches natural join instructor) join course on teaches.course_id=course.course_id
         where id=$1 and semester=$2 and year=$3
         order by course_id 
         `,[instructor_id,current_semester,current_year])).rows;
-        console.log(response.current_courses)
+        console.log(response.current_courses);
         response.previous_courses = (await client.query(`
-        select course.course_id,title,credits,semester,year 
+        select distinct course.course_id,title,credits,semester,year 
         from (teaches natural join instructor) join course on teaches.course_id=course.course_id
         where id=$1 and (semester!=$2 or year!=$3)
-        order by year desc,semester asc
+        order by year desc,case when semester='Winter' then 1 
+                                when semester='Fall' then 2 
+                                when semester='Summer' then 3
+                                when semester='Spring' then 4 end;
         `,[instructor_id,current_semester,current_year])).rows;
+
         console.log(response.previous_courses)
         res.send(response);
     }

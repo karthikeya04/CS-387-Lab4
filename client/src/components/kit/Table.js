@@ -52,7 +52,7 @@ const StyledTable = styled.table`
     font-weight: bold;
   }
 `;
-function Td({ children, to }) {
+function Td({ children, to ,semd}) {
   // Conditionally wrapping content into a link
   const ContentTag = to ? Link : 'div';
 
@@ -86,12 +86,12 @@ const TableMarkup = ({ titles, data ,caption,button}) => (
     </thead>
     <tbody>
       {data.map((item, index) => (
-        <>
+        <>  
         <tr key={index}>
           {titles.map((title, idx) => (
             (title!=="link") ?
             (title==="Register"||title==="Drop")? <td key={idx}><input type="button" value={title} onClick={()=>{title==="Register"?register(item):drop(item)}}/></td> : 
-            ["course_id","title","id","name","department"].includes(title)&&item["link"] ? <Td to={`${item["link"]}`} key={idx}>{item[title]}</Td> : 
+            ["course_id","title","id","Name","department"].includes(title)&&item["link"] ? <Td to={`${item["link"]}`} key={idx}>{item[title]}</Td> : 
             <Td key={idx}>{item[title]}</Td>
             : ""
           ))}

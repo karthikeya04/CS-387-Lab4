@@ -8,10 +8,9 @@ import Table from "./kit/Table";
 
 function CourseInfo(){
     let {course_id} = useParams();
-    let [year,setYear] = useState(null);
-    let [semester,setSemester] = useState(null);
-    let [courseInfo,setCourseInfo] = useState(null);
-    let [idx,setIdx] = useState(0);
+
+    let [basicInfo,setbasicInfo] = useState(null);
+    let [Iinfo,setIinfo] = useState(null);
     let navigate = useNavigate();
     console.log(course_id);
     useEffect(()=>{
@@ -23,41 +22,45 @@ function CourseInfo(){
                 navigate("/login");
                 return;
             }
-            res.prereqs = res.prereqs.map((obj)=>{
-                obj["link"] = "/course/"+obj.course_id;
-                return obj;
-            })
-            res.course_info = res.course_info.map((arr)=>{
-                arr.data[7] = arr.data[7].map((obj)=>{
-                    obj["link"] = "/instructor/"+obj.id;
+            if(res.basic_info[3].content!=="None"){
+                res.basic_info[3].content = res.basic_info[3].content.map((obj)=>{
+                    obj["link"] = "/course/"+obj.course_id;
                     return obj;
                 })
-                arr.data[7] = {
-                    field: "Instructor(s)",
-                    content: (
-                        <Table caption="" data={arr.data[7]} />
+                res.basic_info[3].content =  (
+                        <Table caption="" data={res.basic_info[3].content} />
                     )
-                }
-                return arr;
+            }
+            res.instructors_info = res.instructors_info.map(obj=>{
+                obj.instructors = obj.instructors.map((obj2)=>{
+                    obj2["link"] = "/instructor/"+obj2.id;
+                    return obj2;
+                })
+                obj.instructors = (
+                    <Table caption="" data={obj.instructors} />
+                )
+                return obj;
             })
-            res.course_info = res.course_info.map((arr)=>{
-                arr.data.push({field: "Prerequisites",content: res.prereqs.length>0?(
+
+            setbasicInfo(res.basic_info);
+            setIinfo(res.instructors_info);
+
+            // res.course_info = res.course_info.map((arr)=>{
+            //     arr.data.push({field: "Prerequisites",content: res.prereqs.length>0?(
                     
-                    <Table caption="" data={res.prereqs} />
+            //         <Table caption="" data={res.prereqs} />
                 
-                ): "None"})
-                return arr;
-            })
-            console.log(res)
-            setCourseInfo(res.course_info)
-            setYear(res.current_year);
-            setSemester(res.current_semester);
-            setIdx(0);
+            //     ): "None"})
+            //     return arr;
+            // })
+            // console.log(res)
+            // setCourseInfo(res.course_info)
+            // // setYear(res.current_year);
+            // // setSemester(res.current_semester);
+            // setIdx(0);
         })
-        .catch(err=>console.log(err));
+        .catch(err=>console.log(err))
     },[course_id]);
-      
-  
   
     return (
         <>
@@ -68,9 +71,15 @@ function CourseInfo(){
             <a href="/home/registration">Registration</a>
             </div>
             </div>
-           {courseInfo && idx>=0 ? 
+           {basicInfo ? 
             <Center V H>
-                <Table caption="" data={courseInfo[idx].data} />
+                <Table caption="" data={basicInfo} />
+            </Center> 
+        : <></>
+        }
+        {Iinfo ? 
+            <Center V H>
+                <Table caption="" data={Iinfo} />
             </Center> 
         : <></>
         }

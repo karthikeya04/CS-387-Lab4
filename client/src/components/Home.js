@@ -6,12 +6,17 @@ import "./styles/Home.css"
 import Table from "./kit/Table";
 import { Center } from "./styles/mixins/Center";
 import {NavDropdown} from 'react-bootstrap'
+import {ToastContainer, toast} from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
 
 export function drop(item){
     axios.post("/home",item,{})
     .then(res=>{
         res=res.data;
         console.log(res);
+        // if(res.success){
+        //     toast.success("Successfully dropped")
+        // }
         window.location.reload(false);
     })
     .catch(err=>console.log(err));
@@ -34,17 +39,36 @@ function Home(){
                 obj["link"]="/course/"+obj.course_id;
                 return obj;
             })
-            // res.data.previous_sems = res.data.previous_sems.map((obj)=>{
-            //     obj.courses = obj.courses.map((obj2)=>{
-            //         obj2["link"] = "/course/"+obj2.course_id;
-            //         return obj2;
-            //     })
-            //     return obj;
-            // })
-         
-            setuserInfo(res.data.userInfo);
+            res.data.previous_sems = res.data.previous_sems.map((obj)=>{
+                obj.courses = obj.courses.map((obj2)=>{
+                    obj2["link"] = "/course/"+obj2.course_id;
+                    return obj2;
+                })
+                return obj;
+            })
+            console.log(res.data.current_sem.courses);
+            let ui = [
+                {
+                    "field" : "ID",
+                    "content": res.data.userInfo.id
+                },
+                {
+                    "field" : "Name",
+                    "content": res.data.userInfo.name
+                },
+                {
+                    "field" : "Department",
+                    "content": res.data.userInfo.dept_name
+                },
+                {
+                    "field" : "Total credits",
+                    "content": res.data.userInfo.tot_cred
+                },
+            ]
+            setuserInfo(ui);
             setcurrSemInfo(res.data.current_sem);
             setprevSemInfo(res.data.previous_sems);
+
         }
         )
         .catch(err=>console.log(err))
@@ -53,6 +77,10 @@ function Home(){
     
     return (
         <>
+          <ToastContainer 
+                autoClose={3000}
+            />
+
             <div className="dropdown" style={{position:"absolute",left:1300,top:30}}>
             <button className="dropbtn">  Home  </button>
             <div className="dropdown-content">
@@ -67,12 +95,7 @@ function Home(){
             {
                 userInfo ? 
                 <Center V H>
-                    <b>
-                    ID : {userInfo.id} <br></br>
-                    Name : {userInfo.name} <br></br>
-                    Department: {userInfo.dept_name} <br></br>
-                    Total Credits: {userInfo.tot_cred} <br></br>
-                    </b>
+                <Table caption={""} data={userInfo} />
                 </Center> : <></>
             }
             { currSemInfo.courses ? 
